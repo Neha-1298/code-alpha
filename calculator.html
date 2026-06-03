@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calculator</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #0a0a0b;
+    font-family: 'Syne', sans-serif;
+    overflow: hidden;
+  }
+
+  .bg-grid {
+    position: fixed; inset: 0; z-index: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+  }
+
+  .bg-glow {
+    position: fixed; inset: 0; z-index: 0;
+    background: radial-gradient(ellipse 60% 50% at 50% 60%, rgba(99,60,220,0.18) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .calc-wrapper {
+    position: relative; z-index: 1;
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+  }
+
+  .calc-label {
+    font-size: 11px; letter-spacing: 0.25em; text-transform: uppercase;
+    color: rgba(255,255,255,0.25); font-weight: 700;
+  }
+
+  .calculator {
+    width: 340px;
+    background: #111114;
+    border-radius: 28px;
+    border: 1px solid rgba(255,255,255,0.07);
+    padding: 24px;
+    box-shadow:
+      0 0 0 1px rgba(0,0,0,0.8),
+      0 40px 80px rgba(0,0,0,0.7),
+      inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+
+  .display {
+    background: #0d0d10;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.05);
+    padding: 20px 20px 14px;
+    margin-bottom: 20px;
+    min-height: 110px;
+    display: flex; flex-direction: column; justify-content: flex-end;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .display-history {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px; font-weight: 300;
+    color: rgba(255,255,255,0.28);
+    text-align: right;
+    min-height: 20px;
+    letter-spacing: 0.02em;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    transition: opacity 0.2s;
+  }
+
+  .display-main {
+    font-family: 'DM Mono', monospace;
+    font-size: 42px; font-weight: 400;
+    color: #ffffff;
+    text-align: right;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    transition: font-size 0.15s ease;
+  }
+
+  .display-main.small { font-size: 28px; }
+  .display-main.xsmall { font-size: 20px; }
+
+  .op-indicator {
+    position: absolute; top: 12px; left: 14px;
+    font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase;
+    color: rgba(138,110,255,0.6); font-family: 'DM Mono', monospace; font-weight: 500;
+    opacity: 0; transition: opacity 0.2s;
+  }
+  .op-indicator.show { opacity: 1; }
+
+  .keypad {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+
+  .btn {
+    border: none; cursor: pointer; outline: none;
+    border-radius: 14px;
+    font-family: 'Syne', sans-serif;
+    font-size: 18px; font-weight: 700;
+    height: 68px;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.1s ease;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: rgba(255,255,255,0);
+    transition: background 0.1s;
+    border-radius: inherit;
+  }
+
+  .btn:active::after { background: rgba(255,255,255,0.08); }
+  .btn:active { transform: scale(0.94); }
+
+  .btn.btn-num {
+    background: #1c1c22;
+    color: #f0f0f0;
+    border: 1px solid rgba(255,255,255,0.06);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+  .btn.btn-num:hover { background: #222228; }
+
+  .btn.btn-op {
+    background: #1e1830;
+    color: #a78bfa;
+    border: 1px solid rgba(167,139,250,0.15);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(167,139,250,0.06);
+    font-size: 22px;
+  }
+  .btn.btn-op:hover { background: #231c38; }
+  .btn.btn-op.active-op {
+    background: #2d2248;
+    border-color: rgba(167,139,250,0.45);
+    color: #c4b5fd;
+    box-shadow: 0 0 0 2px rgba(139,92,246,0.25), inset 0 1px 0 rgba(167,139,250,0.1);
+  }
+
+  .btn.btn-fn {
+    background: #1a1a1f;
+    color: rgba(255,255,255,0.55);
+    border: 1px solid rgba(255,255,255,0.05);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    font-size: 14px; letter-spacing: 0.04em; font-weight: 700;
+  }
+  .btn.btn-fn:hover { background: #1f1f25; color: rgba(255,255,255,0.75); }
+
+  .btn.btn-clear {
+    background: #2a1419;
+    color: #f87171;
+    border: 1px solid rgba(248,113,113,0.12);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    font-size: 14px; font-weight: 700; letter-spacing: 0.04em;
+  }
+  .btn.btn-clear:hover { background: #321920; }
+
+  .btn.btn-equals {
+    background: linear-gradient(145deg, #7c3aed, #5b21b6);
+    color: #fff;
+    border: 1px solid rgba(124,58,237,0.5);
+    box-shadow: 0 4px 20px rgba(109,40,217,0.45), inset 0 1px 0 rgba(255,255,255,0.12);
+    font-size: 26px;
+  }
+  .btn.btn-equals:hover {
+    background: linear-gradient(145deg, #8b5cf6, #6d28d9);
+    box-shadow: 0 6px 24px rgba(109,40,217,0.55), inset 0 1px 0 rgba(255,255,255,0.15);
+  }
+
+  .btn.btn-zero { grid-column: span 2; border-radius: 14px; justify-content: flex-start; padding-left: 28px; }
+
+  .kbd-hint {
+    display: flex; gap: 16px; justify-content: center;
+    flex-wrap: wrap;
+    font-size: 10px; letter-spacing: 0.1em;
+    color: rgba(255,255,255,0.15);
+    font-family: 'DM Mono', monospace;
+  }
+  .kbd-hint span { display: flex; align-items: center; gap: 5px; }
+  .kbd-hint kbd {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 4px; padding: 1px 5px; font-size: 9px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .ripple {
+    position: absolute; border-radius: 50%;
+    background: rgba(255,255,255,0.15);
+    pointer-events: none;
+    animation: ripple-anim 0.4s ease-out forwards;
+  }
+  @keyframes ripple-anim {
+    from { transform: scale(0); opacity: 1; }
+    to   { transform: scale(4); opacity: 0; }
+  }
+
+  .display-main.flash {
+    animation: numFlash 0.15s ease;
+  }
+  @keyframes numFlash {
+    0%   { opacity: 1; }
+    40%  { opacity: 0.4; }
+    100% { opacity: 1; }
+  }
+
+  .error { color: #f87171 !important; font-size: 22px !important; }
+</style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="bg-glow"></div>
+
+<div class="calc-wrapper">
+  <div class="calc-label">Calculator</div>
+
+  <div class="calculator">
+    <div class="display" id="display">
+      <div class="op-indicator" id="opIndicator"></div>
+      <div class="display-history" id="displayHistory"></div>
+      <div class="display-main" id="displayMain">0</div>
+    </div>
+
+    <div class="keypad">
+      <button class="btn btn-clear" data-action="clear">AC</button>
+      <button class="btn btn-fn" data-action="sign">+/−</button>
+      <button class="btn btn-fn" data-action="percent">%</button>
+      <button class="btn btn-op" data-action="op" data-op="÷">÷</button>
+
+      <button class="btn btn-num" data-action="digit" data-digit="7">7</button>
+      <button class="btn btn-num" data-action="digit" data-digit="8">8</button>
+      <button class="btn btn-num" data-action="digit" data-digit="9">9</button>
+      <button class="btn btn-op" data-action="op" data-op="×">×</button>
+
+      <button class="btn btn-num" data-action="digit" data-digit="4">4</button>
+      <button class="btn btn-num" data-action="digit" data-digit="5">5</button>
+      <button class="btn btn-num" data-action="digit" data-digit="6">6</button>
+      <button class="btn btn-op" data-action="op" data-op="−">−</button>
+
+      <button class="btn btn-num" data-action="digit" data-digit="1">1</button>
+      <button class="btn btn-num" data-action="digit" data-digit="2">2</button>
+      <button class="btn btn-num" data-action="digit" data-digit="3">3</button>
+      <button class="btn btn-op" data-action="op" data-op="+">+</button>
+
+      <button class="btn btn-num btn-zero" data-action="digit" data-digit="0">0</button>
+      <button class="btn btn-num" data-action="decimal">.</button>
+      <button class="btn btn-equals" data-action="equals">=</button>
+    </div>
+  </div>
+
+  <div class="kbd-hint">
+    <span><kbd>0-9</kbd> digits</span>
+    <span><kbd>+ - * /</kbd> ops</span>
+    <span><kbd>Enter</kbd> equals</span>
+    <span><kbd>Esc</kbd> clear</span>
+    <span><kbd>⌫</kbd> backspace</span>
+  </div>
+</div>
+
+<script>
+const state = {
+  current: '0',
+  stored: null,
+  op: null,
+  justEvaled: false,
+  waitingForOperand: false,
+  history: ''
+};
+
+const displayMain = document.getElementById('displayMain');
+const displayHistory = document.getElementById('displayHistory');
+const opIndicator = document.getElementById('opIndicator');
+
+function updateDisplay() {
+  const val = state.current;
+  displayMain.textContent = formatNumber(val);
+  const len = formatNumber(val).length;
+  displayMain.className = 'display-main' + (len > 14 ? ' xsmall' : len > 10 ? ' small' : '');
+  displayHistory.textContent = state.history;
+
+  if (state.op && !state.justEvaled) {
+    opIndicator.textContent = state.op;
+    opIndicator.classList.add('show');
+  } else {
+    opIndicator.classList.remove('show');
+  }
+
+  document.querySelectorAll('.btn-op').forEach(b => {
+    b.classList.toggle('active-op', b.dataset.op === state.op && !state.justEvaled && state.stored !== null);
+  });
+}
+
+function formatNumber(val) {
+  if (val === 'Error') return val;
+  if (val.includes('.')) {
+    const [int, dec] = val.split('.');
+    return parseInt(int).toLocaleString() + '.' + dec;
+  }
+  const n = parseFloat(val);
+  if (isNaN(n)) return val;
+  if (Math.abs(n) >= 1e15) return n.toExponential(6);
+  return n.toLocaleString();
+}
+
+function inputDigit(d) {
+  if (state.justEvaled) { state.current = d; state.justEvaled = false; state.history = ''; }
+  else if (state.waitingForOperand) { state.current = d; state.waitingForOperand = false; }
+  else if (state.current === '0') state.current = d;
+  else if (state.current.length < 16) state.current += d;
+}
+
+function inputDecimal() {
+  if (state.justEvaled) { state.current = '0.'; state.justEvaled = false; state.history = ''; return; }
+  if (state.waitingForOperand) { state.current = '0.'; state.waitingForOperand = false; return; }
+  if (!state.current.includes('.')) state.current += '.';
+}
+
+function clearAll() {
+  state.current = '0'; state.stored = null; state.op = null;
+  state.justEvaled = false; state.waitingForOperand = false; state.history = '';
+}
+
+function toggleSign() {
+  if (state.current !== '0') {
+    state.current = state.current.startsWith('-')
+      ? state.current.slice(1)
+      : '-' + state.current;
+  }
+}
+
+function doPercent() {
+  const n = parseFloat(state.current);
+  if (state.stored !== null && state.op) {
+    state.current = String(parseFloat(state.stored) * n / 100);
+  } else {
+    state.current = String(n / 100);
+  }
+}
+
+function setOp(op) {
+  if (state.op && !state.justEvaled && state.stored !== null && !state.waitingForOperand) {
+    const result = calculate(parseFloat(state.stored), parseFloat(state.current), state.op);
+    state.stored = String(result);
+    state.current = String(result);
+  } else {
+    state.stored = state.current;
+  }
+  state.op = op;
+  state.history = formatNumber(state.stored) + ' ' + op;
+  state.justEvaled = false;
+  state.waitingForOperand = true;
+}
+
+function doEquals() {
+  if (!state.op || state.stored === null) return;
+  const a = parseFloat(state.stored), b = parseFloat(state.current);
+  state.history = formatNumber(state.stored) + ' ' + state.op + ' ' + formatNumber(state.current) + ' =';
+  const result = calculate(a, b, state.op);
+  if (result === null) { state.current = 'Error'; state.stored = null; state.op = null; }
+  else { state.current = String(result); }
+  state.stored = null; state.op = null; state.justEvaled = true;
+}
+
+function calculate(a, b, op) {
+  switch (op) {
+    case '+': return round(a + b);
+    case '−': return round(a - b);
+    case '×': return round(a * b);
+    case '÷': return b === 0 ? null : round(a / b);
+  }
+}
+
+function round(n) {
+  return parseFloat(n.toPrecision(14));
+}
+
+function backspace() {
+  if (state.justEvaled || state.current === '0') return;
+  state.current = state.current.length > 1 ? state.current.slice(0, -1) : '0';
+}
+
+function rippleEffect(btn, e) {
+  const r = document.createElement('span');
+  r.className = 'ripple';
+  const rect = btn.getBoundingClientRect();
+  const size = Math.max(rect.width, rect.height) * 0.6;
+  r.style.cssText = `width:${size}px;height:${size}px;left:${e.clientX-rect.left-size/2}px;top:${e.clientY-rect.top-size/2}px`;
+  btn.appendChild(r);
+  setTimeout(() => r.remove(), 400);
+}
+
+function flashDisplay() {
+  displayMain.classList.remove('flash');
+  void displayMain.offsetWidth;
+  displayMain.classList.add('flash');
+}
+
+let processing = false;
+
+document.querySelector('.keypad').addEventListener('click', e => {
+  if (processing) return;
+  processing = true;
+  setTimeout(() => { processing = false; }, 50);
+
+  e.stopPropagation();
+  const btn = e.target.closest('.btn');
+  if (!btn) return;
+  rippleEffect(btn, e);
+  const { action, digit, op } = btn.dataset;
+  if (action === 'digit')   { inputDigit(digit); flashDisplay(); }
+  if (action === 'decimal') { inputDecimal(); }
+  if (action === 'clear')   { clearAll(); }
+  if (action === 'sign')    { toggleSign(); }
+  if (action === 'percent') { doPercent(); }
+  if (action === 'op')      { setOp(op); }
+  if (action === 'equals')  { doEquals(); flashDisplay(); }
+  updateDisplay();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key >= '0' && e.key <= '9') { inputDigit(e.key); flashDisplay(); }
+  else if (e.key === '.') { inputDecimal(); }
+  else if (e.key === '+') { setOp('+'); }
+  else if (e.key === '-') { setOp('−'); }
+  else if (e.key === '*') { setOp('×'); }
+  else if (e.key === '/') { e.preventDefault(); setOp('÷'); }
+  else if (e.key === 'Enter' || e.key === '=') { doEquals(); flashDisplay(); }
+  else if (e.key === 'Escape') { clearAll(); }
+  else if (e.key === 'Backspace') { backspace(); }
+  else if (e.key === '%') { doPercent(); }
+  else return;
+  updateDisplay();
+
+  const opMap = { '+': '+', '-': '−', '*': '×', '/': '÷' };
+  if (opMap[e.key]) {
+    const opBtn = document.querySelector(`.btn-op[data-op="${opMap[e.key]}"]`);
+    if (opBtn) { opBtn.classList.add('active-op'); }
+  }
+});
+
+updateDisplay();
+</script>
+</body>
+</html>
